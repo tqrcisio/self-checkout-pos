@@ -53,13 +53,10 @@ func manifestURL() string {
 	return fmt.Sprintf("https://github.com/%s/releases/latest/download/manifest.json", releaseRepo())
 }
 
-// releaseAssetURL returns the canonical GitHub Releases URL for a specific
-// version asset (e.g. updater.exe for v0.1.0).
 func releaseAssetURL(version, asset string) string {
 	return fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", releaseRepo(), version, asset)
 }
 
-// FetchLatest reads manifest.json from the configured manifest URL.
 func FetchLatest(ctx context.Context, client *http.Client) (LatestManifest, error) {
 	url := manifestURL()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
