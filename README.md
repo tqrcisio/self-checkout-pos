@@ -1,6 +1,59 @@
 # self-checkout-pos
 
-Go HTTP service that runs as a Windows service and self-updates. Two binaries on the host: `server.exe` polls GitHub Releases, `updater.exe` handles the file swap and service restart.
+Wails v2 desktop app for self-checkout terminals. The Go process embeds the existing HTTP service (`internal/server`) and the auto-updater (`internal/updater`); the UI is a React + Vite + TanStack Router SPA bundled into the same binary.
+
+`cmd/server` and `cmd/updater` remain as headless dev/CI tooling. Production ships the Wails binary plus `updater.exe`, and the same self-update flow that was originally built for the service is reused to swap the desktop binary.
+
+## Desktop app (Wails)
+
+Prereqs: Go 1.22+, Node 20+, pnpm 10+, plus the Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`). Run `wails doctor` to verify.
+
+Common commands (run from repo root):
+
+```bash
+wails dev      # hot-reload dev window (Go + Vite)
+wails build    # production binary at build/bin/
+wails generate module   # regenerate frontend bindings only
+```
+
+Layout:
+
+```
+.
+├── main.go / app.go         # Wails bootstrap + App facade (Bind target)
+├── frontend/                # React + Vite + TanStack Router + Tailwind v4 + shadcn/ui
+│   ├── src/
+│   │   ├── routes/          # file-based routes (routeTree.gen.ts auto-generated)
+│   │   ├── features/        # feature-scoped modules
+│   │   ├── components/ui/   # shadcn primitives
+│   │   ├── lib/utils.ts     # cn() helper
+│   │   ├── styles.css       # Tailwind v4 entry
+│   │   └── wailsjs/         # generated bindings (gitignored)
+│   └── dist/                # vite build output (gitignored)
+├── internal/
+│   ├── app/                 # future Wails-facing controllers
+│   ├── db/                  # SQLite (modernc.org/sqlite) + goose migrations
+│   ├── domain/              # entities, business rules (no Wails imports)
+│   ├── services/            # use cases
+│   ├── repositories/        # data access
+│   ├── events/              # event constants for runtime.EventsEmit
+│   └── platform/            # OS abstractions via build tags
+└── build/                   # Wails packaging assets (appicon, info.plist, etc.)
+```
+
+The SQLite database lives at `$XDG_CONFIG_HOME/self-checkout-pos/data.db` (`~/Library/Application Support/...` on macOS, `%APPDATA%\...` on Windows).
+
+The embedded HTTP server still listens on `:7000` so existing integrations (`/health`, `/update`, `/config`, `/hello`) keep working alongside the UI.
+
+## Headless mode
+
+If you only need the service (no UI, e.g. CI smoke tests or a Linux box that just runs the HTTP API), `cmd/server` still works the same way it did before Wails:
+
+```bash
+cp config.example.json config.json
+POS_CONFIG=$(pwd)/config.json go run ./cmd/server -action run
+curl localhost:7000/health
+```
 
 ## Architecture
 
