@@ -14,23 +14,22 @@ import (
 )
 
 // EnvReleaseRepo overrides the GitHub repo the updater pulls releases from.
-// Format: "owner/repo" (e.g. "tqrcisio/golang-boilerplate").
-const EnvReleaseRepo = "BOILERPLATE_RELEASE_REPO"
+// Format: "owner/repo" (e.g. "tqrcisio/self-checkout-pos").
+const EnvReleaseRepo = "POS_RELEASE_REPO"
 
 // EnvManifestURL overrides the manifest URL entirely. Useful when hosting the
 // manifest somewhere other than GitHub Releases.
-const EnvManifestURL = "BOILERPLATE_MANIFEST_URL"
+const EnvManifestURL = "POS_MANIFEST_URL"
 
 // DefaultReleaseRepo is the fallback repository used when EnvReleaseRepo is
 // unset. Forks should override this at build time via:
 //
-//	-ldflags "-X github.com/tqrcisio/golang-boilerplate/internal/updater.DefaultReleaseRepo=owner/repo"
-var DefaultReleaseRepo = "tqrcisio/golang-boilerplate"
+//	-ldflags "-X github.com/tqrcisio/self-checkout-pos/internal/updater.DefaultReleaseRepo=owner/repo"
+var DefaultReleaseRepo = "tqrcisio/self-checkout-pos"
 
 // LatestManifest is the shape of manifest.json published as a release asset.
-// CI uploads this file on every release; the boilerplate fetches it from
-// https://github.com/{repo}/releases/latest/download/manifest.json which
-// GitHub redirects to the latest release's asset.
+// CI uploads this on every release; server.exe fetches from
+// https://github.com/{repo}/releases/latest/download/manifest.json.
 type LatestManifest struct {
 	Version            string    `json:"version"`
 	ReleasedAt         time.Time `json:"released_at"`
@@ -47,8 +46,6 @@ func releaseRepo() string {
 	return DefaultReleaseRepo
 }
 
-// manifestURL returns the URL that serves the latest manifest.json. Falls back
-// to GitHub's "latest release asset" redirect when EnvManifestURL is unset.
 func manifestURL() string {
 	if u := os.Getenv(EnvManifestURL); u != "" {
 		return u

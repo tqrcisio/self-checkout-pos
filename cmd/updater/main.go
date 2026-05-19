@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/tqrcisio/golang-boilerplate/internal/applier"
-	"github.com/tqrcisio/golang-boilerplate/internal/config"
-	"github.com/tqrcisio/golang-boilerplate/internal/updater"
+	"github.com/tqrcisio/self-checkout-pos/internal/applier"
+	"github.com/tqrcisio/self-checkout-pos/internal/config"
+	"github.com/tqrcisio/self-checkout-pos/internal/updater"
 )
 
 var version = "dev"

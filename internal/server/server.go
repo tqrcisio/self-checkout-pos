@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tqrcisio/golang-boilerplate/internal/config"
-	"github.com/tqrcisio/golang-boilerplate/internal/updater"
+	"github.com/tqrcisio/self-checkout-pos/internal/config"
+	"github.com/tqrcisio/self-checkout-pos/internal/updater"
 )
 
 // UpdaterHandle is the subset of *updater.Updater that the server uses. The
@@ -190,7 +190,7 @@ func (s *Server) handleHello(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
-		"message": "hello from golang-boilerplate",
+		"message": "hello from self-checkout-pos",
 		"version": updater.Version(),
 	})
 }

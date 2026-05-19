@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tqrcisio/golang-boilerplate/internal/applier"
-	"github.com/tqrcisio/golang-boilerplate/internal/config"
+	"github.com/tqrcisio/self-checkout-pos/internal/applier"
+	"github.com/tqrcisio/self-checkout-pos/internal/config"
 )
 
 const (
@@ -23,7 +23,7 @@ const (
 
 // Service identifiers shared with the updater binary.
 const (
-	ServiceName = "golang-boilerplate"
+	ServiceName = "self-checkout-pos"
 )
 
 type Updater struct {

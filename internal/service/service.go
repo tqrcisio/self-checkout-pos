@@ -6,14 +6,14 @@ import (
 
 	"github.com/kardianos/service"
 
-	"github.com/tqrcisio/golang-boilerplate/internal/config"
-	"github.com/tqrcisio/golang-boilerplate/internal/server"
-	"github.com/tqrcisio/golang-boilerplate/internal/updater"
+	"github.com/tqrcisio/self-checkout-pos/internal/config"
+	"github.com/tqrcisio/self-checkout-pos/internal/server"
+	"github.com/tqrcisio/self-checkout-pos/internal/updater"
 )
 
 const (
-	serviceDisplayName = "Go Boilerplate Service"
-	serviceDescription = "Sample Windows service in Go with HTTP API and out-of-process auto-updater."
+	serviceDisplayName = "Self-Checkout POS"
+	serviceDescription = "HTTP service with out-of-process auto-updater."
 )
 
 type program struct {
@@ -23,7 +23,7 @@ type program struct {
 }
 
 func (p *program) Start(s service.Service) error {
-	log.Println("Starting service...")
+	log.Printf("service: starting")
 
 	exeDir, err := config.ExecutableDir()
 	if err != nil {
@@ -50,7 +50,7 @@ func (p *program) Start(s service.Service) error {
 }
 
 func (p *program) Stop(s service.Service) error {
-	log.Println("Stopping service...")
+	log.Printf("service: stopping")
 	if p.updater != nil {
 		p.updater.Stop()
 	}

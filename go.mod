@@ -1,4 +1,4 @@
-module github.com/tqrcisio/golang-boilerplate
+module github.com/tqrcisio/self-checkout-pos
 
 go 1.23.0
 

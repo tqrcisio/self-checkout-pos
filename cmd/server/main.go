@@ -4,8 +4,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/tqrcisio/golang-boilerplate/internal/service"
-	"github.com/tqrcisio/golang-boilerplate/internal/updater"
+	"github.com/tqrcisio/self-checkout-pos/internal/service"
+	"github.com/tqrcisio/self-checkout-pos/internal/updater"
 )
 
 var version = "dev"

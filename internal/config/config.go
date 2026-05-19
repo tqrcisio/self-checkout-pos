@@ -10,7 +10,7 @@ import (
 
 // EnvConfigPath is the environment variable that overrides the default
 // config.json lookup (which expects the file next to the binary).
-const EnvConfigPath = "BOILERPLATE_CONFIG"
+const EnvConfigPath = "POS_CONFIG"
 
 const DefaultPort = 7000
 
