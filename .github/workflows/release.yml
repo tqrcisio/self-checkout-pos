@@ -30,15 +30,40 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - uses: pnpm/action-setup@v4
+        if: steps.semrel.outputs.version != ''
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        if: steps.semrel.outputs.version != ''
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Wails CLI
+        if: steps.semrel.outputs.version != ''
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
       - name: Build windows/amd64
         if: steps.semrel.outputs.version != ''
         env:
-          GOOS: windows
-          GOARCH: amd64
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
-          go build -ldflags="-s -w -X main.version=v${VERSION}" -o server.exe  ./cmd/server
-          go build -ldflags="-s -w -X main.version=v${VERSION}" -o updater.exe ./cmd/updater
+          CGO_ENABLED=0 wails build \
+            -platform windows/amd64 \
+            -ldflags "-s -w -X main.version=v${VERSION}" \
+            -clean
+
+          mv build/bin/self-checkout-pos.exe server.exe
+
+          GOOS=windows GOARCH=amd64 go build \
+            -ldflags="-s -w -X main.version=v${VERSION}" \
+            -o updater.exe ./cmd/updater
+
           sha256sum server.exe  | awk '{print $1}' > server.exe.sha256
           sha256sum updater.exe | awk '{print $1}' > updater.exe.sha256
 
