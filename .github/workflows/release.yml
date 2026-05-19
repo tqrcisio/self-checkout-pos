@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Semantic release
+        id: semrel
+        uses: go-semantic-release/action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          allow-initial-development-versions: true
+          force-bump-patch-version: true
+
+      - uses: actions/setup-go@v5
+        if: steps.semrel.outputs.version != ''
+        with:
+          go-version-file: go.mod
+
+      - name: Build windows/amd64
+        if: steps.semrel.outputs.version != ''
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          VERSION: ${{ steps.semrel.outputs.version }}
+        run: |
+          go build -ldflags="-s -w -X main.version=v${VERSION}" -o server.exe  ./cmd/server
+          go build -ldflags="-s -w -X main.version=v${VERSION}" -o updater.exe ./cmd/updater
+          sha256sum server.exe  | awk '{print $1}' > server.exe.sha256
+          sha256sum updater.exe | awk '{print $1}' > updater.exe.sha256
+
+      - name: Build manifest.json
+        if: steps.semrel.outputs.version != ''
+        env:
+          REPO:    ${{ github.repository }}
+          VERSION: v${{ steps.semrel.outputs.version }}
+        run: |
+          base="https://github.com/${REPO}/releases/download/${VERSION}"
+          jq -n \
+            --arg v  "$VERSION" \
+            --arg t  "$(date -u +%FT%TZ)" \
+            --arg u  "$base/server.exe" \
+            --arg s  "$base/server.exe.sha256" \
+            --arg uu "$base/updater.exe" \
+            --arg us "$base/updater.exe.sha256" \
+            '{
+              version:              $v,
+              released_at:          $t,
+              download_url:         $u,
+              sha256_url:           $s,
+              updater_download_url: $uu,
+              updater_sha256_url:   $us
+            }' > manifest.json
+          cat manifest.json
+
+      - name: Upload release assets
+        if: steps.semrel.outputs.version != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION:      v${{ steps.semrel.outputs.version }}
+        run: |
+          gh release upload "$VERSION" \
+            server.exe server.exe.sha256 \
+            updater.exe updater.exe.sha256 \
+            manifest.json \
+            config.example.json
+
+      - name: Append download links to release notes
+        if: steps.semrel.outputs.version != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO:         ${{ github.repository }}
+          VERSION:      v${{ steps.semrel.outputs.version }}
+        run: |
+          body=$(gh release view "$VERSION" --json body --jq .body)
+          base="https://github.com/${REPO}/releases/download/${VERSION}"
+          latest="https://github.com/${REPO}/releases/latest/download"
+          {
+            printf -- '%s\n\n' "$body"
+            printf -- '## Downloads\n\n'
+            printf -- '- [server.exe](%s/server.exe)\n'             "$base"
+            printf -- '- [server.exe.sha256](%s/server.exe.sha256)\n' "$base"
+            printf -- '- [updater.exe](%s/updater.exe)\n'           "$base"
+            printf -- '- [updater.exe.sha256](%s/updater.exe.sha256)\n' "$base"
+            printf -- '- [manifest.json](%s/manifest.json)\n'       "$base"
+            printf -- '\n'
+            printf -- 'Auto-update fetches `%s/manifest.json` on every poll.\n' "$latest"
+          } > release-notes.md
+          gh release edit "$VERSION" --notes-file release-notes.md
