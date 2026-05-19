@@ -30,3 +30,19 @@ config.json
 # Editor/IDE
 .idea/
 .vscode/
+.claude/
+
+# Frontend (Vite + React + TanStack Router)
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/
+frontend/src/wailsjs/
+frontend/src/routeTree.gen.ts
+
+# Wails build output
+build/bin/
+
+# Local SQLite
+*.db
+*.db-shm
+*.db-wal
