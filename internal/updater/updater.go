@@ -21,10 +21,7 @@ const (
 	httpTimeout  = 30 * time.Second
 )
 
-// Service identifiers shared with the updater binary.
-const (
-	ServiceName = "self-checkout-pos"
-)
+const ServiceName = "self-checkout-pos"
 
 type Updater struct {
 	cfgGetter  func() config.Config
@@ -191,9 +188,8 @@ func (u *Updater) ensureDownloaded(ctx context.Context, m LatestManifest) (stage
 	return Download(ctx, u.httpClient, u.exeDir, m)
 }
 
-// handOffToUpdater spawns the staged updater.exe detached. updater.exe is
-// responsible for stopping the service, swapping files, restarting, and
-// finalizing (or rolling back). server.exe just exits when SCM tells it to.
+// updater.exe stops the service, swaps files, restarts, and finalizes (or
+// rolls back). server.exe just exits when SCM tells it to.
 func (u *Updater) handOffToUpdater(m LatestManifest) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
