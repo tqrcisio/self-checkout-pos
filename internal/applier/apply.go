@@ -33,9 +33,6 @@ type Restarter interface {
 	Start(name string) error
 }
 
-// Apply performs the full update cycle: stop service, swap binaries, start
-// service, poll /health for the expected version, then either finalize or
-// rollback.
 func Apply(ctx context.Context, cfg Config, r Restarter) (UpdateStatus, error) {
 	log.Printf("applier: %s -> %s, stopping service %s", cfg.FromVersion, cfg.ToVersion, cfg.ServiceName)
 	if err := r.Stop(cfg.ServiceName); err != nil {

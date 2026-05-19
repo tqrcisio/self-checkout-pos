@@ -24,7 +24,6 @@ func (SCM) Stop(name string) error {
 	return waitState(name, "STOPPED", 30*time.Second)
 }
 
-// Start sends Start to the service.
 func (SCM) Start(name string) error {
 	out, err := exec.Command("sc.exe", "start", name).CombinedOutput()
 	if err != nil {
