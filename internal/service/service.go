@@ -31,7 +31,7 @@ func (p *program) Start(s service.Service) error {
 	} else {
 		updater.PruneAppliedStageDir(exeDir)
 		if err := updater.EnsureUpdaterBinary(exeDir); err != nil {
-			log.Printf("warn: bootstrap updater.exe: %v (auto-update disabled until fixed)", err)
+			log.Printf("warn: bootstrap helper binary: %v (auto-update disabled until fixed)", err)
 		}
 	}
 

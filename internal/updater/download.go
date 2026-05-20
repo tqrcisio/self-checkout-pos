@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tqrcisio/self-checkout-pos/internal/applier"
 )
 
 type stagedDownload struct {
@@ -31,8 +33,8 @@ func stageDir(exeDir, version string) string {
 }
 
 // IsAlreadyStaged returns true if a valid download for `version` exists on
-// disk: manifest present, server.exe checksum matches, and (if the manifest
-// expects updater.exe) updater.exe checksum also matches.
+// disk: manifest present, main binary checksum matches, and (if the manifest
+// expects the helper binary) its checksum also matches.
 func IsAlreadyStaged(exeDir string, m LatestManifest) bool {
 	dir := stageDir(exeDir, m.Version)
 	manifestPath := filepath.Join(dir, "manifest.json")
@@ -44,39 +46,39 @@ func IsAlreadyStaged(exeDir string, m LatestManifest) bool {
 	if json.Unmarshal(mfBytes, &mf) != nil {
 		return false
 	}
-	if !checksumOK(filepath.Join(dir, "server.exe"), filepath.Join(dir, "server.exe.sha256")) {
+	if !checksumOK(filepath.Join(dir, applier.BinaryName), filepath.Join(dir, applier.BinaryName+".sha256")) {
 		return false
 	}
-	if mf.HasUpdater && !checksumOK(filepath.Join(dir, "updater.exe"), filepath.Join(dir, "updater.exe.sha256")) {
+	if mf.HasUpdater && !checksumOK(filepath.Join(dir, applier.UpdaterName), filepath.Join(dir, applier.UpdaterName+".sha256")) {
 		return false
 	}
 	return true
 }
 
-// Download fetches server.exe (+ optional updater.exe) and their sha256 files
-// into the staging dir, verifying integrity. On failure the staging dir is
-// removed.
+// Download fetches the main binary (and optional helper) plus their sha256
+// files into the staging dir, verifying integrity. On failure the staging
+// dir is removed.
 func Download(ctx context.Context, client *http.Client, exeDir string, m LatestManifest) (stagedDownload, error) {
 	dir := stageDir(exeDir, m.Version)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return stagedDownload{}, fmt.Errorf("mkdir staging: %w", err)
 	}
 
-	exePath := filepath.Join(dir, "server.exe")
-	exeSum := filepath.Join(dir, "server.exe.sha256")
+	exePath := filepath.Join(dir, applier.BinaryName)
+	exeSum := filepath.Join(dir, applier.BinaryName+".sha256")
 	if err := fetchAndVerify(ctx, client, m.DownloadURL, m.SHA256URL, exePath, exeSum); err != nil {
 		os.RemoveAll(dir)
-		return stagedDownload{}, fmt.Errorf("server.exe: %w", err)
+		return stagedDownload{}, fmt.Errorf("%s: %w", applier.BinaryName, err)
 	}
 
 	staged := stagedDownload{ExePath: exePath, Version: m.Version}
 	hasUpdater := m.UpdaterDownloadURL != "" && m.UpdaterSHA256URL != ""
 	if hasUpdater {
-		updPath := filepath.Join(dir, "updater.exe")
-		updSum := filepath.Join(dir, "updater.exe.sha256")
+		updPath := filepath.Join(dir, applier.UpdaterName)
+		updSum := filepath.Join(dir, applier.UpdaterName+".sha256")
 		if err := fetchAndVerify(ctx, client, m.UpdaterDownloadURL, m.UpdaterSHA256URL, updPath, updSum); err != nil {
 			os.RemoveAll(dir)
-			return stagedDownload{}, fmt.Errorf("updater.exe: %w", err)
+			return stagedDownload{}, fmt.Errorf("%s: %w", applier.UpdaterName, err)
 		}
 		staged.UpdaterExePath = updPath
 	}

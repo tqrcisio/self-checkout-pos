@@ -77,10 +77,10 @@ func Apply(ctx context.Context, cfg Config, r Restarter) (UpdateStatus, error) {
 }
 
 func swap(cfg Config) error {
-	exePath := filepath.Join(cfg.ExeDir, "server.exe")
-	exeOld := filepath.Join(cfg.ExeDir, "server.exe.old")
-	updPath := filepath.Join(cfg.ExeDir, "updater.exe")
-	updOld := filepath.Join(cfg.ExeDir, "updater.exe.old")
+	exePath := filepath.Join(cfg.ExeDir, BinaryName)
+	exeOld := filepath.Join(cfg.ExeDir, BinaryName+".old")
+	updPath := filepath.Join(cfg.ExeDir, UpdaterName)
+	updOld := filepath.Join(cfg.ExeDir, UpdaterName+".old")
 
 	for _, p := range []string{exeOld, updOld} {
 		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
@@ -89,18 +89,18 @@ func swap(cfg Config) error {
 	}
 
 	if err := os.Rename(exePath, exeOld); err != nil {
-		return fmt.Errorf("rename server.exe -> .old: %w", err)
+		return fmt.Errorf("rename %s -> .old: %w", BinaryName, err)
 	}
 	if err := copyFile(cfg.NewExe, exePath); err != nil {
 		_ = os.Rename(exeOld, exePath)
-		return fmt.Errorf("copy new server.exe: %w", err)
+		return fmt.Errorf("copy new %s: %w", BinaryName, err)
 	}
 
 	if _, err := os.Stat(updPath); err == nil {
 		if err := os.Rename(updPath, updOld); err != nil {
 			_ = os.Remove(exePath)
 			_ = os.Rename(exeOld, exePath)
-			return fmt.Errorf("rename updater.exe -> .old: %w", err)
+			return fmt.Errorf("rename %s -> .old: %w", UpdaterName, err)
 		}
 	}
 	if err := copyFile(cfg.NewUpdater, updPath); err != nil {
@@ -108,7 +108,7 @@ func swap(cfg Config) error {
 		_ = os.Rename(updOld, updPath)
 		_ = os.Remove(exePath)
 		_ = os.Rename(exeOld, exePath)
-		return fmt.Errorf("copy new updater.exe: %w", err)
+		return fmt.Errorf("copy new %s: %w", UpdaterName, err)
 	}
 	return nil
 }
@@ -166,7 +166,7 @@ func pollHealth(ctx context.Context, url, expectedVersion string) error {
 }
 
 func finalize(cfg Config) {
-	for _, name := range []string{"server.exe.old", "updater.exe.old"} {
+	for _, name := range []string{BinaryName + ".old", UpdaterName + ".old"} {
 		p := filepath.Join(cfg.ExeDir, name)
 		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 			log.Printf("applier: remove %s: %v", name, err)
@@ -182,18 +182,18 @@ func finalize(cfg Config) {
 func rollback(ctx context.Context, cfg Config, r Restarter, cause error) UpdateStatus {
 	_ = r.Stop(cfg.ServiceName)
 
-	exePath := filepath.Join(cfg.ExeDir, "server.exe")
-	exeOld := filepath.Join(cfg.ExeDir, "server.exe.old")
-	updPath := filepath.Join(cfg.ExeDir, "updater.exe")
-	updOld := filepath.Join(cfg.ExeDir, "updater.exe.old")
-	failedExe := filepath.Join(cfg.ExeDir, "server.exe.failed-"+cfg.ToVersion)
-	failedUpd := filepath.Join(cfg.ExeDir, "updater.exe.failed-"+cfg.ToVersion)
+	exePath := filepath.Join(cfg.ExeDir, BinaryName)
+	exeOld := filepath.Join(cfg.ExeDir, BinaryName+".old")
+	updPath := filepath.Join(cfg.ExeDir, UpdaterName)
+	updOld := filepath.Join(cfg.ExeDir, UpdaterName+".old")
+	failedExe := filepath.Join(cfg.ExeDir, BinaryName+".failed-"+cfg.ToVersion)
+	failedUpd := filepath.Join(cfg.ExeDir, UpdaterName+".failed-"+cfg.ToVersion)
 
 	if err := os.Rename(exePath, failedExe); err != nil {
-		log.Printf("applier: rename failed server.exe: %v", err)
+		log.Printf("applier: rename failed %s: %v", BinaryName, err)
 	}
 	if err := os.Rename(exeOld, exePath); err != nil {
-		log.Printf("applier: restore server.exe.old: %v (manual recovery required)", err)
+		log.Printf("applier: restore %s.old: %v (manual recovery required)", BinaryName, err)
 	}
 	if _, err := os.Stat(updOld); err == nil {
 		_ = os.Rename(updPath, failedUpd)
