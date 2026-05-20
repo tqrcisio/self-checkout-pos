@@ -7,10 +7,10 @@ import (
 )
 
 // PruneAppliedStageDir removes <exeDir>/.update/<currentVersion>/ on boot.
-// updater.exe cannot delete its own running file from finalize, so a
+// The helper binary cannot delete its own running file from finalize, so a
 // successfully-applied stage dir is left behind containing the (now-stopped)
-// updater.exe binary. By the time server.exe boots, that updater.exe has
-// exited and the directory is free to remove.
+// helper binary. By the time the main binary boots, the helper has exited
+// and the directory is free to remove.
 //
 // Safe to call on every boot: no-op when the directory is absent.
 func PruneAppliedStageDir(exeDir string) {

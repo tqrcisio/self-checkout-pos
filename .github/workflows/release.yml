@@ -30,17 +30,42 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - uses: pnpm/action-setup@v4
+        if: steps.semrel.outputs.version != ''
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        if: steps.semrel.outputs.version != ''
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install Wails CLI
+        if: steps.semrel.outputs.version != ''
+        run: |
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
       - name: Build windows/amd64
         if: steps.semrel.outputs.version != ''
         env:
-          GOOS: windows
-          GOARCH: amd64
           VERSION: ${{ steps.semrel.outputs.version }}
         run: |
-          go build -ldflags="-s -w -X main.version=v${VERSION}" -o server.exe  ./cmd/server
-          go build -ldflags="-s -w -X main.version=v${VERSION}" -o updater.exe ./cmd/updater
-          sha256sum server.exe  | awk '{print $1}' > server.exe.sha256
-          sha256sum updater.exe | awk '{print $1}' > updater.exe.sha256
+          CGO_ENABLED=0 wails build \
+            -platform windows/amd64 \
+            -ldflags "-s -w -X main.version=v${VERSION}" \
+            -clean
+
+          mv build/bin/self-checkout-pos.exe self-checkout-pos.exe
+
+          GOOS=windows GOARCH=amd64 go build \
+            -ldflags="-s -w -X main.version=v${VERSION}" \
+            -o self-checkout-pos-updater.exe ./cmd/updater
+
+          sha256sum self-checkout-pos.exe         | awk '{print $1}' > self-checkout-pos.exe.sha256
+          sha256sum self-checkout-pos-updater.exe | awk '{print $1}' > self-checkout-pos-updater.exe.sha256
 
       - name: Build manifest.json
         if: steps.semrel.outputs.version != ''
@@ -52,10 +77,10 @@ jobs:
           jq -n \
             --arg v  "$VERSION" \
             --arg t  "$(date -u +%FT%TZ)" \
-            --arg u  "$base/server.exe" \
-            --arg s  "$base/server.exe.sha256" \
-            --arg uu "$base/updater.exe" \
-            --arg us "$base/updater.exe.sha256" \
+            --arg u  "$base/self-checkout-pos.exe" \
+            --arg s  "$base/self-checkout-pos.exe.sha256" \
+            --arg uu "$base/self-checkout-pos-updater.exe" \
+            --arg us "$base/self-checkout-pos-updater.exe.sha256" \
             '{
               version:              $v,
               released_at:          $t,
@@ -73,8 +98,8 @@ jobs:
           VERSION:      v${{ steps.semrel.outputs.version }}
         run: |
           gh release upload "$VERSION" \
-            server.exe server.exe.sha256 \
-            updater.exe updater.exe.sha256 \
+            self-checkout-pos.exe         self-checkout-pos.exe.sha256 \
+            self-checkout-pos-updater.exe self-checkout-pos-updater.exe.sha256 \
             manifest.json \
             config.example.json
 
@@ -91,11 +116,11 @@ jobs:
           {
             printf -- '%s\n\n' "$body"
             printf -- '## Downloads\n\n'
-            printf -- '- [server.exe](%s/server.exe)\n'             "$base"
-            printf -- '- [server.exe.sha256](%s/server.exe.sha256)\n' "$base"
-            printf -- '- [updater.exe](%s/updater.exe)\n'           "$base"
-            printf -- '- [updater.exe.sha256](%s/updater.exe.sha256)\n' "$base"
-            printf -- '- [manifest.json](%s/manifest.json)\n'       "$base"
+            printf -- '- [self-checkout-pos.exe](%s/self-checkout-pos.exe)\n'                 "$base"
+            printf -- '- [self-checkout-pos.exe.sha256](%s/self-checkout-pos.exe.sha256)\n'   "$base"
+            printf -- '- [self-checkout-pos-updater.exe](%s/self-checkout-pos-updater.exe)\n' "$base"
+            printf -- '- [self-checkout-pos-updater.exe.sha256](%s/self-checkout-pos-updater.exe.sha256)\n' "$base"
+            printf -- '- [manifest.json](%s/manifest.json)\n'                                 "$base"
             printf -- '\n'
             printf -- 'Auto-update fetches `%s/manifest.json` on every poll.\n' "$latest"
           } > release-notes.md

@@ -28,7 +28,7 @@ const EnvManifestURL = "POS_MANIFEST_URL"
 var DefaultReleaseRepo = "tqrcisio/self-checkout-pos"
 
 // LatestManifest is the shape of manifest.json published as a release asset.
-// CI uploads this on every release; server.exe fetches from
+// CI uploads this on every release; the running app fetches from
 // https://github.com/{repo}/releases/latest/download/manifest.json.
 type LatestManifest struct {
 	Version            string    `json:"version"`

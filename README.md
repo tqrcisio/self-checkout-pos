@@ -2,11 +2,20 @@
 
 Wails v2 desktop app for self-checkout terminals. The Go process embeds the existing HTTP service (`internal/server`) and the auto-updater (`internal/updater`); the UI is a React + Vite + TanStack Router SPA bundled into the same binary.
 
-`cmd/server` and `cmd/updater` remain as headless dev/CI tooling. Production ships the Wails binary plus `updater.exe`, and the same self-update flow that was originally built for the service is reused to swap the desktop binary.
+`cmd/server` and `cmd/updater` remain as headless dev/CI tooling. Production ships `self-checkout-pos.exe` (the Wails binary) plus `self-checkout-pos-updater.exe`, and the same self-update flow that was originally built for the service is reused to swap the desktop binary.
 
 ## Desktop app (Wails)
 
 Prereqs: Go 1.22+, Node 20+, pnpm 10+, plus the Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`). Run `wails doctor` to verify.
+
+`go install` writes to `$(go env GOPATH)/bin`. If that dir is not on your PATH, the `wails` command will not be found. Fix once:
+
+```bash
+echo 'export PATH="$(go env GOPATH)/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+(Use `~/.bashrc` if you are on bash.)
 
 Common commands (run from repo root):
 
@@ -61,10 +70,10 @@ curl localhost:7000/health
 flowchart LR
     subgraph host["Customer Windows host (C:\self-checkout-pos)"]
         direction TB
-        svc["server.exe<br/>HTTP :7000<br/>SCM-managed"]
-        upd["updater.exe<br/>spawned on apply"]
+        svc["self-checkout-pos.exe<br/>UI + HTTP :7000<br/>SCM-managed"]
+        upd["self-checkout-pos-updater.exe<br/>spawned on apply"]
         stage[(".update/&lt;version&gt;/<br/>staged downloads")]
-        live[("server.exe.old<br/>updater.exe.old<br/>status.json")]
+        live[("self-checkout-pos.exe.old<br/>self-checkout-pos-updater.exe.old<br/>status.json")]
         svc -- "hourly poll + verify" --> stage
         svc -- "POST /update<br/>or 02:00-05:00 window" --> upd
         upd -- "sc stop / sc start" --> svc
@@ -74,13 +83,13 @@ flowchart LR
     subgraph gh["GitHub Releases"]
         direction TB
         man["manifest.json"]
-        bin["server.exe + updater.exe<br/>+ .sha256 sidecars"]
+        bin["self-checkout-pos.exe<br/>+ self-checkout-pos-updater.exe<br/>+ .sha256 sidecars"]
     end
     svc -. "GET manifest.json" .-> man
     svc -. "GET assets + verify sha256" .-> bin
 ```
 
-Windows won't let a service overwrite its own running binary. `server.exe` handles poll, download, checksum, and handoff. `updater.exe` runs detached for SCM stop, rename, copy, restart, and health check. Failed health check triggers rollback from `.old` files.
+Windows won't let a service overwrite its own running binary. `self-checkout-pos.exe` handles poll, download, checksum, and handoff. `self-checkout-pos-updater.exe` runs detached for SCM stop, rename, copy, restart, and health check. Failed health check triggers rollback from `.old` files.
 
 ## Layout
 
@@ -101,9 +110,11 @@ Windows won't let a service overwrite its own running binary. `server.exe` handl
 
 ## Build
 
+Production binary comes from Wails (see [Desktop app (Wails)](#desktop-app-wails)). Below are headless equivalents useful for CI smoke tests:
+
 ```bash
-GOOS=windows GOARCH=amd64 go build -o server.exe  ./cmd/server
-GOOS=windows GOARCH=amd64 go build -o updater.exe ./cmd/updater
+GOOS=windows GOARCH=amd64 go build -o headless-server.exe ./cmd/server
+GOOS=windows GOARCH=amd64 go build -o self-checkout-pos-updater.exe ./cmd/updater
 
 # Local check
 go build ./...
@@ -123,12 +134,12 @@ Service wrapper drops to foreground outside Windows. `Ctrl+C` stops it.
 
 ## Install on Windows
 
-1. Build both binaries with a version stamp.
-2. Drop `server.exe`, `updater.exe`, and `config.json` into `C:\self-checkout-pos\`.
+1. Build both binaries with a version stamp (`wails build` produces `self-checkout-pos.exe`; `go build ./cmd/updater` produces `self-checkout-pos-updater.exe`).
+2. Drop `self-checkout-pos.exe`, `self-checkout-pos-updater.exe`, and `config.json` into `C:\self-checkout-pos\`.
 3. Register and start:
    ```cmd
-   server.exe -action install
-   server.exe -action start
+   self-checkout-pos.exe -action install
+   self-checkout-pos.exe -action start
    ```
 
 Other actions: `stop`, `uninstall`, `run` (foreground).
@@ -164,16 +175,16 @@ Other actions: `stop`, `uninstall`, `run` (foreground).
 
 ```mermaid
 sequenceDiagram
-    participant S as server.exe
+    participant S as self-checkout-pos.exe
     participant GH as GitHub Releases
-    participant U as updater.exe
+    participant U as self-checkout-pos-updater.exe
     participant FS as Disk
 
     loop every hour
         S->>GH: GET manifest.json
         GH-->>S: { version, urls, sha256 urls }
         alt newer version
-            S->>GH: GET server.exe / updater.exe + .sha256
+            S->>GH: GET main + updater + .sha256
             S->>FS: write to .update/{version}/, verify checksums
         end
     end
@@ -194,7 +205,7 @@ sequenceDiagram
 
 Notes:
 - `dev` builds never poll.
-- First boot on an older `server.exe` bootstraps a matching `updater.exe` from the release asset.
+- First boot on a build that predates the helper bootstraps `self-checkout-pos-updater.exe` from the release asset.
 - Stage dirs for applied versions are pruned on next boot.
 
 ## Pointing the updater at a different repo
@@ -204,18 +215,17 @@ Default manifest URL:
 https://github.com/tqrcisio/self-checkout-pos/releases/latest/download/manifest.json
 ```
 
-Override at build time:
+Override at build time (works for both the Wails and headless flavors):
 ```bash
-go build -ldflags \
+wails build -platform windows/amd64 -ldflags \
   "-X main.version=v0.1.0 \
-   -X github.com/tqrcisio/self-checkout-pos/internal/updater.DefaultReleaseRepo=youruser/yourrepo" \
-  -o server.exe ./cmd/server
+   -X github.com/tqrcisio/self-checkout-pos/internal/updater.DefaultReleaseRepo=youruser/yourrepo"
 ```
 
 Or at runtime:
 ```bash
-POS_RELEASE_REPO=youruser/yourrepo server.exe -action run
-POS_MANIFEST_URL=https://example.com/manifest.json server.exe -action run
+POS_RELEASE_REPO=youruser/yourrepo self-checkout-pos.exe -action run
+POS_MANIFEST_URL=https://example.com/manifest.json self-checkout-pos.exe -action run
 ```
 
 `manifest.json` shape:
@@ -223,10 +233,10 @@ POS_MANIFEST_URL=https://example.com/manifest.json server.exe -action run
 {
   "version":              "v0.1.0",
   "released_at":          "2026-05-18T00:00:00Z",
-  "download_url":         "https://github.com/owner/repo/releases/download/v0.1.0/server.exe",
-  "sha256_url":           "https://github.com/owner/repo/releases/download/v0.1.0/server.exe.sha256",
-  "updater_download_url": "https://github.com/owner/repo/releases/download/v0.1.0/updater.exe",
-  "updater_sha256_url":   "https://github.com/owner/repo/releases/download/v0.1.0/updater.exe.sha256"
+  "download_url":         "https://github.com/owner/repo/releases/download/v0.1.0/self-checkout-pos.exe",
+  "sha256_url":           "https://github.com/owner/repo/releases/download/v0.1.0/self-checkout-pos.exe.sha256",
+  "updater_download_url": "https://github.com/owner/repo/releases/download/v0.1.0/self-checkout-pos-updater.exe",
+  "updater_sha256_url":   "https://github.com/owner/repo/releases/download/v0.1.0/self-checkout-pos-updater.exe.sha256"
 }
 ```
 
@@ -236,11 +246,11 @@ POS_MANIFEST_URL=https://example.com/manifest.json server.exe -action run
 flowchart LR
     push["push to main<br/>(conventional commit)"]
     semrel["go-semantic-release<br/>tag + release notes"]
-    build["go build -ldflags<br/>server.exe + updater.exe"]
+    build["wails build + go build<br/>self-checkout-pos.exe + self-checkout-pos-updater.exe"]
     sums["sha256 sidecars"]
     manifest["manifest.json"]
     upload["gh release upload"]
-    poll[("server.exe on host<br/>picks it up next hour")]
+    poll[("self-checkout-pos.exe on host<br/>picks it up next hour")]
 
     push --> semrel --> build --> sums --> manifest --> upload --> poll
 ```

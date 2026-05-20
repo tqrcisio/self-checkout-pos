@@ -180,24 +180,25 @@ func (u *Updater) ensureDownloaded(ctx context.Context, m LatestManifest) (stage
 	defer u.mu.Unlock()
 	if IsAlreadyStaged(u.exeDir, m) {
 		return stagedDownload{
-			ExePath:        filepath.Join(stageDir(u.exeDir, m.Version), "server.exe"),
-			UpdaterExePath: filepath.Join(stageDir(u.exeDir, m.Version), "updater.exe"),
+			ExePath:        filepath.Join(stageDir(u.exeDir, m.Version), applier.BinaryName),
+			UpdaterExePath: filepath.Join(stageDir(u.exeDir, m.Version), applier.UpdaterName),
 			Version:        m.Version,
 		}, nil
 	}
 	return Download(ctx, u.httpClient, u.exeDir, m)
 }
 
-// updater.exe stops the service, swaps files, restarts, and finalizes (or
-// rolls back). server.exe just exits when SCM tells it to.
+// The helper binary stops the service, swaps files, restarts, and
+// finalizes (or rolls back). The main binary just exits when SCM tells
+// it to.
 func (u *Updater) handOffToUpdater(m LatestManifest) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if !IsAlreadyStaged(u.exeDir, m) {
 		return errors.New("no staged download for " + m.Version)
 	}
-	stagedUpdater := filepath.Join(stageDir(u.exeDir, m.Version), "updater.exe")
-	stagedExe := filepath.Join(stageDir(u.exeDir, m.Version), "server.exe")
+	stagedUpdater := filepath.Join(stageDir(u.exeDir, m.Version), applier.UpdaterName)
+	stagedExe := filepath.Join(stageDir(u.exeDir, m.Version), applier.BinaryName)
 
 	cmd := detachedCmd(stagedUpdater,
 		"--service", ServiceName,
@@ -209,7 +210,7 @@ func (u *Updater) handOffToUpdater(m LatestManifest) error {
 		"--health-url", u.healthURL(),
 	)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("spawn updater.exe: %w", err)
+		return fmt.Errorf("spawn %s: %w", applier.UpdaterName, err)
 	}
 	if err := cmd.Process.Release(); err != nil {
 		log.Printf("updater: release process handle: %v", err)
