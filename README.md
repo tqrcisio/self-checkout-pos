@@ -8,6 +8,15 @@ Wails v2 desktop app for self-checkout terminals. The Go process embeds the exis
 
 Prereqs: Go 1.22+, Node 20+, pnpm 10+, plus the Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`). Run `wails doctor` to verify.
 
+`go install` writes to `$(go env GOPATH)/bin`. If that dir is not on your PATH, the `wails` command will not be found. Fix once:
+
+```bash
+echo 'export PATH="$(go env GOPATH)/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+(Use `~/.bashrc` if you are on bash.)
+
 Common commands (run from repo root):
 
 ```bash
